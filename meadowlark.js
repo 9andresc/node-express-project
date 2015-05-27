@@ -6,6 +6,10 @@ var fortune = require('./lib/fortune.js');
 
 var app = express();
 
+// Response's header configuration
+// Disable server information
+app.disable('x-powered-by');
+
 // Static resources
 app.use(express.static(__dirname + '/public'));
 
