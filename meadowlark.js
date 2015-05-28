@@ -125,11 +125,14 @@ app.get('/newsletter', function (request, response) {
 });
 
 app.post('/process', function (request, response) {
-  console.log('Form (from querystring): ' + request.query.form);
-  console.log('CSRF token (from hidden form field): ' + request.body._csrf);
-  console.log('Name (from visible form field): ' + request.body.name);
-  console.log('Email (from visible form field): ' + request.body.email);
-  response.redirect(303, '/thank-you');
+  if (request.xhr || request.accepts('json,html') === 'json') {
+    response.send({
+      success: true
+    });
+  }
+  else {
+    response.redirect(303, '/thank-you');
+  }
 });
 
 // ERROR HANDLING
