@@ -6,6 +6,9 @@ var jqupload = require('jquery-file-upload-middleware');
 // CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
 
+// FILES
+var credentials = require('./credentials.js');
+
 // EXPRESS INITIATION
 var app = express();
 
@@ -94,6 +97,19 @@ app.use('/upload', function (request, response, next) {
   })(request, response, next);
 });
 
+// Middleware to setting and accessing cookies
+app.use(require('cookie-parser')(credentials.cookieSecret));
+
+// Middleware for store sessions information
+app.use(require('express-session')());
+
+// Middleware to add a flash object into the context
+app.use(function (request, response, next) {
+  response.locals.flash = request.session.flash;
+  delete request.session.flash;
+  next();
+});
+
 // ROUTES
 app.get('/', function (request, response) {
   response.render('home');
@@ -168,6 +184,60 @@ app.post('/contest/vacation-photo/:year/:month', function (request, response) {
     console.log(files);
     response.redirect(303, '/thank-you');
   });
+});
+
+// For now, we're mocking NewsletterSignup:
+function NewsletterSignup(){}
+NewsletterSignup.prototype.save = function(cb){
+  cb();
+};
+
+var VALID_EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+app.post('/newsletter', function (request, response) {
+  var name = request.body.name || '', email = request.body.email || '';
+  // Input validation
+  if (!email.match(VALID_EMAIL_REGEX)) {
+    if (request.xhr) {
+      return response.json({
+        error: 'Invalid name email address.'
+      });
+    }
+    request.session.flash = {
+      type: 'danger',
+      intro: 'Validation error!',
+      message: 'The email address you entered was not valid.'
+    };
+    return response.redirect(303, 'newsletter/archive');
+  }
+
+  new NewsletterSignup({name: name, email: email}).save(function (errors) {
+    if (errors) {
+      if (request.xhr) return response.json({error: 'Database error.'});
+      request.session.flash = {
+        type: 'danger',
+        intro: 'Database error!',
+        message: 'There was a database error; please try again later.'
+      };
+      return response.redirect(303, '/newsletter/archive');
+    }
+
+    if (request.xhr) return response.json({success: true});
+    request.session.flash = {
+      type: 'success',
+      intro: 'Thank you!',
+      message: 'You have now been signed up for the newsletter.'
+    };
+    return response.redirect(303, '/newsletter/archive');
+  });
+});
+
+app.get('/newsletter/archive', function(request, response){
+  response.render('newsletter/archive');
+});
+
+app.get('/thank-you', function(request, response){
+  response.render('thank_you');
 });
 
 // ERROR HANDLING

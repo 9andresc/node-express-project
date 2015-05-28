@@ -2,5 +2,8 @@
 node_modules
 .idea
 
+# Files
+credentials.js
+
 # File extensions
 *.log
