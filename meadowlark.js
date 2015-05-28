@@ -76,6 +76,9 @@ app.use(function (request, response, next) {
   next();
 });
 
+// Middleware to parse URL-encoded body
+app.use(require('body-parser')());
+
 // ROUTES
 app.get('/', function (request, response) {
   response.render('home');
@@ -115,6 +118,18 @@ app.get('/data/nursery-rhyme', function (request, response) {
     adjective: 'bushy',
     noun: 'heck'
   });
+});
+
+app.get('/newsletter', function (request, response) {
+  response.render('newsletter', {csrf: 'CSRF token goes here'});
+});
+
+app.post('/process', function (request, response) {
+  console.log('Form (from querystring): ' + request.query.form);
+  console.log('CSRF token (from hidden form field): ' + request.body._csrf);
+  console.log('Name (from visible form field): ' + request.body.name);
+  console.log('Email (from visible form field): ' + request.body.email);
+  response.redirect(303, '/thank-you');
 });
 
 // ERROR HANDLING
