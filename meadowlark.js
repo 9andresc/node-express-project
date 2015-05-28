@@ -1,7 +1,9 @@
 // NPM MODULES
 var express = require('express');
+var formidable = require('formidable');
+var jqupload = require('jquery-file-upload-middleware');
 
-// NODE MODULES
+// CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
 
 // EXPRESS INITIATION
@@ -79,6 +81,19 @@ app.use(function (request, response, next) {
 // Middleware to parse URL-encoded body
 app.use(require('body-parser')());
 
+// Middleware to work with jquery-file-upload
+app.use('/upload', function (request, response, next) {
+  var now = Date.now();
+  jqupload.fileHandler({
+    uploadDir: function () {
+      return __dirname + '/public/uploads/' + now;
+    },
+    uploadUrl: function () {
+      return '/uploads/' + now;
+    }
+  })(request, response, next);
+});
+
 // ROUTES
 app.get('/', function (request, response) {
   response.render('home');
@@ -133,6 +148,26 @@ app.post('/process', function (request, response) {
   else {
     response.redirect(303, '/thank-you');
   }
+});
+
+app.get('/contest/vacation-photo', function (request, response) {
+  var now = new Date();
+  response.render('contest/vacation_photo', {
+    year: now.getFullYear(),
+    month: now.getMonth()
+  });
+});
+
+app.post('/contest/vacation-photo/:year/:month', function (request, response) {
+  var form = new formidable.IncomingForm();
+  form.parse(request, function (errors, fields, files) {
+    if (errors) return response.redirect(303, '/error');
+    console.log('received fields:');
+    console.log(fields);
+    console.log('received files:');
+    console.log(files);
+    response.redirect(303, '/thank-you');
+  });
 });
 
 // ERROR HANDLING

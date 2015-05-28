@@ -1,0 +1,71 @@
+{{#section 'head'}}
+  <style>
+    .btn-file {
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-file input[type=file] {
+      position: absolute;
+      top: 0;
+      right: 0;
+      min-width: 100%;
+      min-height: 100%;
+      font-size: 999px;
+      text-align: right;
+      filter: alpha(opacity=0);
+      opacity: 0;
+      outline: none;
+      background: white;
+      cursor: inherit;
+      display: block;
+    }
+  </style>
+{{/section}}
+
+<form class="form-horizontal" role="form" enctype="multipart/form-data" method="POST" action="/contest/vacation-photo/{year}/{month}">
+  <div class="form-group">
+    <label for="fieldName" class="col-sm-2 control-label">Name</label>
+    <div class="col-sm-4">
+      <input type="text" class="form-control" id="fieldName" name="name">
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="fieldEmail" class="col-sm-2 control-label">Email</label>
+    <div class="col-sm-4">
+      <input type="email" class="form-control" required id="fieldEmail" name="email">
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="fieldPhoto" class="col-sm-2 control-label">Vacation photo</label>
+    <div class="col-sm-4">
+      <span class="btn btn-default btn-file">
+        Upload
+        <input type="file" class="form-control" accept="image/*" id="fieldPhoto" data-url="/upload" multiple name="photo">
+      </span>
+      <div id="fileUploads"></div>
+    </div>
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-4">
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </div>
+  </div>
+</form>
+
+{{#section 'jquery'}}
+  <script src="/vendor/jqfu/jquery.ui.widget.js"></script>
+  <script src="/vendor/jqfu/jquery.iframe-transport.js"></script>
+  <script src="/vendor/jqfu/jquery.fileupload.js"></script>
+  <script>
+    $(document).ready(function () {
+      $('#fieldPhoto').fileupload({
+        dataType: 'json',
+        done: function (e, data) {
+          $.each(data.results.files, function (index, file) {
+            $('#fileUploads').append($('<div class="upload"><span class="glyphicon glyphicon-ok"></span>' + '&nbsp;' + file.originalName + '</div>'));
+          });
+        }
+      });
+    });
+  </script>
+{{/section}}
