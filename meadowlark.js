@@ -5,6 +5,7 @@ var jqupload = require('jquery-file-upload-middleware');
 
 // CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
+var cartValidation = require('./lib/cart_validation.js');
 
 // FILES
 var credentials = require('./credentials.js');
@@ -109,6 +110,10 @@ app.use(function (request, response, next) {
   delete request.session.flash;
   next();
 });
+
+// Middleware for cart validation
+app.use(cartValidation.checkWaivers);
+app.use(cartValidation.checkGuestCounts);
 
 // ROUTES
 app.get('/', function (request, response) {
