@@ -2,6 +2,7 @@
 var express = require('express');
 var formidable = require('formidable');
 var jqupload = require('jquery-file-upload-middleware');
+var nodemailer = require('nodemailer');
 
 // CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
@@ -37,6 +38,24 @@ app.set('view engine', 'handlebars');
 
 // PORT CONFIGURATION
 app.set('port', process.env.PORT || 3000);
+
+// EMAIL CONFIGURATION
+var mainTransport = nodemailer.createTransport('SMTP', {
+  service: 'Gmail',
+  auth: {
+    user: credentials.gmail.user,
+    pass: credentials.gmail.password
+  }
+});
+
+mainTransport.sendMail({
+  from: '"Andres Cabral" <andrescabral.c@gmail.com>',
+  to: 'joecustomer@gmail.com',
+  subject: 'Your Meadowlark Travel Tour',
+  text: 'Thank you for booking your trip with Meadowlark Travel. We look forward to your visit!'
+}, function (errors) {
+  if (errors) console.error('Unable to send email: ' + errors);
+});
 
 // FUNCTIONS
 // Function to return weather data
