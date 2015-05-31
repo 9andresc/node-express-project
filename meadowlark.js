@@ -2,15 +2,21 @@
 var express = require('express');
 var formidable = require('formidable');
 var jqupload = require('jquery-file-upload-middleware');
-var nodemailer = require('nodemailer');
 var http = require('http');
+var mongoose = require('mongoose');
+var fs = require('fs');
+
+// FILES
+var credentials = require('./credentials.js');
 
 // CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
 var cartValidation = require('./lib/cart_validation.js');
+var emailService = require('./lib/email.js')(credentials);
 
-// FILES
-var credentials = require('./credentials.js');
+// MODELS
+var Vacation = require('./models/vacation.js');
+var VacationInSeasonListener = require('./models/vacation_in_season_listener.js');
 
 // EXPRESS INITIATION
 var app = express();
@@ -101,25 +107,73 @@ app.set('view engine', 'handlebars');
 // PORT CONFIGURATION
 app.set('port', process.env.PORT || 3000);
 
-// EMAIL CONFIGURATION
-var mainTransport = nodemailer.createTransport('SMTP', {
-  service: 'Gmail',
-  auth: {
-    user: credentials.gmail.user,
-    pass: credentials.gmail.password
+// DATABASE CONFIGURATION
+var opts = {
+  server: {
+    socketOptions: {keepAlive: 1}
   }
+};
+switch (app.get('env')) {
+  case 'development':
+    mongoose.connect(credentials.mongo.development.connectionString, opts);
+    break;
+  case 'production':
+    mongoose.connect(credentials.mongo.production.connectionString, opts);
+    break;
+  default:
+    throw new Error('Unknown execution environment: ' + app.get('env'));
+}
+
+// Initialize vacations
+Vacation.find(function (errors, vacations) {
+  if (vacations.length) return;
+
+  new Vacation({
+    name: 'Hood River Day Trip',
+    slug: 'hood-river-day-trip',
+    category: 'Day Trip',
+    sku: 'HR199',
+    description: 'Spend a day sailing on the Columbia and enjoying craft beers in Hood River!',
+    priceInCents: 9995,
+    tags: ['day trip', 'hood river', 'sailing', 'windsurfing', 'breweries'],
+    inSeason: true,
+    maximumGuests: 16,
+    available: true,
+    packagesSold: 0
+  }).save();
+
+  new Vacation({
+    name: 'Oregon Coast Getaway',
+    slug: 'oregon-coast-getaway',
+    category: 'Weekend Getaway',
+    sku: 'OC39',
+    description: 'Enjoy the ocean air and quaint coastal towns!',
+    priceInCents: 269995,
+    tags: ['weekend getaway', 'oregon coast', 'beachcombing'],
+    inSeason: false,
+    maximumGuests: 8,
+    available: true,
+    packagesSold: 0
+  }).save();
+
+  new Vacation({
+    name: 'Rock Climbing in Bend',
+    slug: 'rock-climbing-in-bend',
+    category: 'Adventure',
+    sku: 'B99',
+    description: 'Experience the thrill of climbing in the high desert.',
+    priceInCents: 289995,
+    tags: ['weekend getaway', 'bend', 'high desert', 'rock climbing'],
+    inSeason: true,
+    requiresWaiver: true,
+    maximumGuests: 4,
+    available: false,
+    packagesSold: 0,
+    notes: 'The tour guide is currently recovering from a skiing accident'
+  }).save();
 });
 
-mainTransport.sendMail({
-  from: '"Andres Cabral" <andrescabral.c@gmail.com>',
-  to: 'joecustomer@gmail.com',
-  subject: 'Your Meadowlark Travel Tour',
-  text: 'Thank you for booking your trip with Meadowlark Travel. We look forward to your visit!'
-}, function (errors) {
-  if (errors) console.error('Unable to send email: ' + errors);
-});
-
-// FUNCTIONS
+// MIDDLEWARE
 // Function to return mocked weather data
 function getWeatherData() {
   return {
@@ -149,7 +203,6 @@ function getWeatherData() {
   };
 }
 
-// MIDDLEWARE
 // Middleware to inject data into res.locals.partials
 app.use(function (request, response, next) {
   if (!response.locals.partials) response.locals.partials = {};
@@ -260,15 +313,40 @@ app.get('/contest/vacation-photo', function (request, response) {
   });
 });
 
+// Make sure data directory exists
+var dataDir = __dirname + '/data';
+var vacationPhotoDir = dataDir + '/vacation_photo';
+fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
+fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
+
+function saveContestEntry(contestName, email, year, month, photoPath) {
+  // TODO... this will come later
+}
+
 app.post('/contest/vacation-photo/:year/:month', function (request, response) {
   var form = new formidable.IncomingForm();
   form.parse(request, function (errors, fields, files) {
     if (errors) return response.redirect(303, '/error');
-    console.log('received fields:');
-    console.log(fields);
-    console.log('received files:');
-    console.log(files);
-    response.redirect(303, '/thank-you');
+    if (errors) {
+      response.session.flash = {
+        type: 'danger',
+        intro: 'Oops!',
+        message: 'There was an error processing your submission. Please try again later.'
+      };
+      return response.redirect(303, '/contest/vacation-photo');
+    }
+    var photo = files.photo;
+    var dir = vacationPhotoDir + '/' + Date.now();
+    var path = dir + '/' + photo.name;
+    fs.mkdirSync(dir);
+    fs.renameSync(photo.path, dir + '/' + photo.name);
+    saveContestEntry('vacation_photo', fields.email, request.params.year, request.params.month, path);
+    request.session.flash = {
+      type: 'success',
+      intro: 'Good luck!',
+      message: 'You have been entered into the contest.'
+    };
+    return response.redirect(303, '/contest/vacation-photo/entries');
   });
 });
 
@@ -326,10 +404,110 @@ app.get('/thank-you', function(request, response){
   response.render('thank_you');
 });
 
-app.get('/epic-fail', function (request, response) {
+app.get('/epic-fail', function () {
   process.nextTick(function () {
-    throw new errorsor('Kaboom!');
+    throw new Error('Kaboom!');
   });
+});
+
+app.get('/vacations', function (request, response) {
+  Vacation.find({available: true}, function (errors, vacations) {
+    var context = {
+      vacations: vacations.map(function (vacation) {
+        return {
+          sku: vacation.sku,
+          name: vacation.name,
+          description: vacation.description,
+          price: vacation.getDisplayPrice(),
+          inSeason: vacation.inSeason
+        };
+      })
+    };
+
+    response.render('vacations', context);
+  });
+});
+
+app.get('/cart/add', function (request, response, next) {
+  var cart = request.session.cart || (request.session.cart = {items: []});
+  Vacation.findOne({sku: request.query.sku}, function (errors, vacation) {
+    if (errors) return next(errors);
+    if (!vacation) return next(new Error('Unknown vacation SKU: ' + request.query.sku));
+    cart.items.push({
+      vacation: vacation,
+      guests: request.body.guests || 1
+    });
+    response.redirect(303, '/cart');
+  });
+});
+
+app.get('/cart', function (request, response, next) {
+  var cart = request.session.cart;
+  if (!cart) next();
+  response.render('cart', {cart: cart});
+});
+
+app.get('/cart/checkout', function (request, response, next) {
+  var cart = request.session.cart;
+  if (!cart) next();
+  response.render('cart_checkout');
+});
+
+app.post('/cart/checkout', function (request, response, next) {
+  var cart = request.session.cart;
+  if (!cart) next(new Error('Cart does not exist.'));
+  var name = request.body.name || '', email = request.body.email || '';
+  // Input validation
+  if (!email.match(VALID_EMAIL_REGEX)) return response.next(new Error('Invalid email address.'));
+  // Assign a random cart ID; normally we would use a database ID here
+  cart.number = Math.random().toString().replace(/^0\.0*/, '');
+  cart.billing = {
+    name: name,
+    email: email
+  };
+
+  response.render('email/cart_thank_you', {layout: null, cart: cart}, function (errors, html) {
+    if (errors) console.log('error in email template');
+    emailService.send(cart.billing.email, 'Thank you for booking your trip with Meadowlark Travel!', html);
+  });
+  response.render('cart_thank_you', {cart: cart});
+});
+
+app.get('/cart/thank-you', function (request, response) {
+  response.render('cart_thank_you', {cart: request.session.cart});
+});
+
+app.get('/email/cart/thank-you', function (request, response) {
+  response.render('email/cart_thank_you', {layout: null, cart: request.session.cart});
+});
+
+app.get('/notify-me-when-in-season', function (request, response) {
+  response.render('notify_me_when_in_season', {sku: request.query.sku});
+});
+
+app.post('/notify-me-when-in-season', function (request, response) {
+  VacationInSeasonListener.update(
+    {email: request.body.email},
+    {$push: {skus: request.body.sku}},
+    {upsert: true},
+    function (errors) {
+      if (errors) {
+        console.error(errors.stack);
+        request.session.flash = {
+          type: 'danger',
+          intro: 'Oops!',
+          message: 'There was an error processing your request.'
+        };
+        return response.redirect(303, '/vacations');
+      }
+      request.session.flash = {
+        type: 'success',
+        intro: 'Thank you!',
+        message: 'You will be notified when this vacation is in season.'
+      };
+      return response.redirect(303, '/vacations');
+    }
+  );
 });
 
 // ERROR HANDLING
