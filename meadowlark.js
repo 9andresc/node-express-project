@@ -3,6 +3,7 @@ var express = require('express');
 var formidable = require('formidable');
 var jqupload = require('jquery-file-upload-middleware');
 var nodemailer = require('nodemailer');
+var http = require('http');
 
 // CUSTOM MODULES
 var fortune = require('./lib/fortune.js');
@@ -15,8 +16,69 @@ var credentials = require('./credentials.js');
 var app = express();
 
 // RESPONSE'S HEADER CONFIGURATION
-// Disable sensitive information server
+// Disable sensitive information of the server
 app.disable('x-powered-by');
+
+// DOMAIN
+// Middleware that deals with uncaught exceptions
+app.use(function (request, response, next) {
+  // Create a domain for this request
+  var domain = require('domain').create();
+  // Handle errors on this domain
+  domain.on('error', function (errors) {
+    console.error('DOMAIN ERROR CAUGHT\n', errors.stack);
+    try {
+      // Failsafe shutdown in 5 seconds
+      setTimeout(function () {
+        console.error('Failsafe shutdown.');
+        process.exit(1);
+      }, 5000);
+
+      // Disconnect from the cluster
+      var worker = require('cluster').worker;
+      if (worker) worker.disconnect();
+
+      // Stop taking new requests
+      server.close();
+
+      try {
+        // Attempt to use Express error route
+        next(errors);
+      }
+      catch (e) {
+        // If Express error route failed, try plain Node response
+        console.error('Express error mechanism failed.\n', e.stack);
+        response.statusCode = 500;
+        response.setHeader('content-type', 'text/plain');
+        response.send('Server error.');
+      }
+    }
+    catch (e) {
+      console.error('Unable to send 500 response.\n', e.stack);
+    }
+  });
+
+  // Add the request and response objects to the domain
+  domain.add(request);
+  domain.add(response);
+
+  // Execute the rest of the request chain in the domain
+  domain.run(next);
+});
+
+// LOGGING CONFIGURATION
+switch (app.get('env')) {
+  case 'development':
+    // Compact, colorful dev logging
+    app.use(require('morgan')('dev'));
+    break;
+  case 'production':
+    // Module 'express-logger' supports daily log rotation
+    app.use(require('express-logger')({
+      path: __dirname + '/log/requests.log'
+    }));
+    break;
+}
 
 // STATIC RESOURCES
 app.use(express.static(__dirname + '/public'));
@@ -58,7 +120,7 @@ mainTransport.sendMail({
 });
 
 // FUNCTIONS
-// Function to return weather data
+// Function to return mocked weather data
 function getWeatherData() {
   return {
     locations: [
@@ -224,7 +286,7 @@ app.post('/newsletter', function (request, response) {
   if (!email.match(VALID_EMAIL_REGEX)) {
     if (request.xhr) {
       return response.json({
-        error: 'Invalid name email address.'
+        errorsor: 'Invalid name email address.'
       });
     }
     request.session.flash = {
@@ -237,7 +299,7 @@ app.post('/newsletter', function (request, response) {
 
   new NewsletterSignup({name: name, email: email}).save(function (errors) {
     if (errors) {
-      if (request.xhr) return response.json({error: 'Database error.'});
+      if (request.xhr) return response.json({errorsor: 'Database error.'});
       request.session.flash = {
         type: 'danger',
         intro: 'Database error!',
@@ -264,6 +326,12 @@ app.get('/thank-you', function(request, response){
   response.render('thank_you');
 });
 
+app.get('/epic-fail', function (request, response) {
+  process.nextTick(function () {
+    throw new errorsor('Kaboom!');
+  });
+});
+
 // ERROR HANDLING
 // Custom 404 page
 app.use(function (request, response) {
@@ -272,13 +340,25 @@ app.use(function (request, response) {
 });
 
 // Custom 500 page
-app.use(function (error, request, response) {
-  console.error(error.stack);
+app.use(function (errorsor, request, response) {
+  console.error(errorsor.stack);
   response.status(500);
   response.render('500');
 });
 
-// SERVER CONFIGURATION
-app.listen(app.get('port'), function () {
-  console.log('Express started on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
-});
+// SERVER INITIATION
+var server;
+function startServer() {
+  server = http.createServer(app).listen(app.get('port'), function () {
+    console.log('Express started in ' + app.get('env') + ' mode on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
+  });
+}
+
+if (require.main === module) {
+  // Application run directly; start app server
+  startServer();
+}
+else {
+  // Application imported as a module via 'require': export function to create server
+  module.exports = startServer;
+}
