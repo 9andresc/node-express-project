@@ -1,8 +1,8 @@
-var Vacation = require('./models/vacation.js');
-var VacationInSeasonListener = require('./models/vacation_in_season_listener.js');
+var Vacation = require('../models/vacation.js');
+var VacationInSeasonListener = require('../models/vacation_in_season_listener.js');
 var VALID_EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-var credentials = require('./credentials.js');
-var emailService = require('./lib/email.js')(credentials);
+var credentials = require('../credentials.js');
+var emailService = require('../lib/email.js')(credentials);
 
 exports.getVacations = function (request, response) {
   Vacation.find({available: true}, function (errors, vacations) {
