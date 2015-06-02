@@ -3,6 +3,9 @@ var express = require('express');
 var jqupload = require('jquery-file-upload-middleware');
 var http = require('http');
 var mongoose = require('mongoose');
+var cors = require('express-cors');
+var rest = require('connect-rest');
+var vhost = require('vhost');
 
 // FILES
 var credentials = require('./credentials.js');
@@ -19,6 +22,13 @@ var app = express();
 // RESPONSE'S HEADER CONFIGURATION
 // Disable sensitive information of the server
 app.disable('x-powered-by');
+
+// CORS (Cross Origin Resource Sharing) CONFIGURATION
+app.use(cors({
+  allowedOrigins: [
+    '/api'
+  ]
+}));
 
 // DOMAIN
 // Middleware that deals with uncaught exceptions
@@ -246,6 +256,26 @@ app.use(cartValidation.checkGuestCounts);
 
 // ROUTES
 require('./routes.js')(app);
+
+// API CONFIGURATION
+var apiOptions = {
+  context: '/',
+  domain: require('domain').create()
+};
+
+apiOptions.domain.on('error', function (errors) {
+  console.log('API domain error.\n', errors.stack);
+  setTimeout(function () {
+    console.log('Server shutting down after API domain error.');
+    process.exit(1);
+  }, 5000);
+  server.close();
+  var worker = require('cluster').worker;
+  if (worker) worker.disconnect();
+});
+
+// Link API into pipeline
+app.use(vhost('api.*', rest.rester(apiOptions)));
 
 // ERROR HANDLING
 // Custom 404 page

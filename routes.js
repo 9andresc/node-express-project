@@ -1,8 +1,11 @@
+var rest = require('connect-rest');
+
 var main = require('./handlers/main.js');
 var tours = require('./handlers/tours.js');
 var others = require('./handlers/others.js');
 var contest = require('./handlers/contest.js');
 var vacations = require('./handlers/vacations.js');
+var api = require('./handlers/api.js');
 
 module.exports = function (app) {
   app.get('/', main.getHome);
@@ -54,4 +57,11 @@ module.exports = function (app) {
   app.get('/notify-me-when-in-season', vacations.getNotifyMeWhenInSeason);
 
   app.post('/notify-me-when-in-season', vacations.postNotifyMeWhenInSeason);
+
+  // API ROUTES
+  rest.get('/attractions', api.getAttractions);
+
+  rest.post('/attraction', api.postAttraction);
+
+  rest.get('/attraction/:id', api.getAttraction);
 };
