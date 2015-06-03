@@ -53,9 +53,9 @@
 </form>
 
 {{#section 'jquery'}}
-  <script src="/vendor/jqfu/jquery.ui.widget.js"></script>
-  <script src="/vendor/jqfu/jquery.iframe-transport.js"></script>
-  <script src="/vendor/jqfu/jquery.fileupload.js"></script>
+  <script src="{{static '/vendor/jqfu/jquery.ui.widget.js'}}"></script>
+  <script src="{{static '/vendor/jqfu/jquery.iframe-transport.js'}}"></script>
+  <script src="{{static '/vendor/jqfu/jquery.fileupload.js'}}"></script>
   <script>
     $(document).ready(function () {
       $('#fieldPhoto').fileupload({

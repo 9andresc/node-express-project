@@ -12,6 +12,7 @@ var credentials = require('./credentials.js');
 
 // CUSTOM MODULES
 var cartValidation = require('./lib/cart_validation.js');
+var staticResource = require('./lib/static.js').map;
 
 // MODELS
 var Vacation = require('./models/vacation.js');
@@ -103,11 +104,18 @@ var handlebars = require('express-handlebars').create({
       if (!this._sections) this._sections = {};
       this._sections[name] = options.fn(this);
       return null;
+    },
+    static: function (name) {
+      return require('./lib/static.js').map(name);
     }
   }
 });
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
+
+// Set up css/js bundling
+var bundler = require('connect-bundle')(require('./config.js'));
+app.use(bundler);
 
 // PORT CONFIGURATION
 app.set('port', process.env.PORT || 3000);
@@ -179,6 +187,13 @@ Vacation.find(function (errors, vacations) {
 });
 
 // MIDDLEWARE
+// Middleware to change the icon logo
+app.use(function (request, response, next) {
+  var now = new Date();
+  response.locals.logoImage = now.getMonth() == 11 && now.getDate() == 19 ? staticResource('/img/logo_bud_clark.png') : staticResource('/img/logo.png');
+  next();
+});
+
 // Function to return mocked weather data
 function getWeatherData() {
   return {
