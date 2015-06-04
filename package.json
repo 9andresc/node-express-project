@@ -27,6 +27,7 @@
     "mongoose": "^4.0.4",
     "morgan": "^1.5.3",
     "nodemailer": "^1.3.4",
+    "underscore": "^1.8.3",
     "vhost": "^3.0.0"
   },
   "devDependencies": {
