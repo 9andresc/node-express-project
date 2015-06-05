@@ -58,6 +58,36 @@ module.exports = function (app) {
 
   app.post('/notify-me-when-in-season', vacations.postNotifyMeWhenInSeason);
 
+  function customerOnly(request, response) {
+    var user = request.session.passport.user;
+    if (user && request.role === 'customer') return next();
+    response.redirect(303, '/unauthorized');
+  }
+
+  function employeeOnly(request, response, next) {
+    var user = request.session.passport.user;
+    if (user && request.role === 'employee') return next();
+    next('route');
+  }
+
+  // Customer routes
+  app.get('/account', customerOnly, function (request, response) {
+    response.render('account');
+  });
+
+  app.get('/account/order-history', customerOnly, function (request, response) {
+    response.render('account/order_history');
+  });
+
+  app.get('/account/email-prefs', customerOnly, function (request, response) {
+    response.render('account/email_prefs');
+  });
+
+  // Employer routes
+  app.get('/sales', employeeOnly, function (request, response) {
+    response.render('sales');
+  });
+
   // API ROUTES
   rest.get('/attractions', api.getAttractions);
 
