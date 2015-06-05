@@ -1,11 +1,12 @@
 // NPM MODULES
 var express = require('express');
 var jqupload = require('jquery-file-upload-middleware');
-var http = require('http');
+var https = require('https');
 var mongoose = require('mongoose');
 var cors = require('express-cors');
 var rest = require('connect-rest');
 var vhost = require('vhost');
+var fs = require('fs');
 
 // FILES
 var credentials = require('./credentials.js');
@@ -307,10 +308,15 @@ app.use(function (errorsor, request, response) {
 });
 
 // SERVER INITIATION
+var options = {
+  key: fs.readFileSync(__dirname + '/ssl/meadowlark.pem'),
+  cert: fs.readFileSync(__dirname + '/ssl/meadowlark.crt')
+};
+
 var server;
 function startServer() {
-  server = http.createServer(app).listen(app.get('port'), function () {
-    console.log('Express started in ' + app.get('env') + ' mode on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
+  server = https.createServer(options, app).listen(app.get('port'), function () {
+    console.log('Express started in ' + app.get('env') + ' mode on https://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
   });
 }
 
