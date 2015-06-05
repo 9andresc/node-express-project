@@ -270,6 +270,13 @@ app.use(function (request, response, next) {
 app.use(cartValidation.checkWaivers);
 app.use(cartValidation.checkGuestCounts);
 
+// Middleware to prevent CSRF attacks
+app.use(require('csurf')());
+app.use(function (request, response, next) {
+  response.locals._csrfToken = request.csrfToken();
+  next();
+});
+
 // ROUTES
 require('./routes.js')(app);
 
