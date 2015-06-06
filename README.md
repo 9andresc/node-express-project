@@ -5,4 +5,6 @@ A project done in Node Js from the book "Web Development with Node and Express -
 
   * Express
   * Handlebars
-  * Node Js
+  * Node.js
+  * Grunt
+  * MongoDB
